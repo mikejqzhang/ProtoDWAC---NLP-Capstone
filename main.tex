@@ -63,6 +63,79 @@ In the sections below we review conformal methods (SECTION) which we use to eval
 our proposed ProtoDWAC model (). After the models are introduced, we move on to our model's empirical performance, comparing the effect of our proposed model on accuracy and claibration (), robustness (), and transparency/interpretability ().
 
 \section{Background}
+\subsection{Notation}
+
+\subsection{Conformal Methods: Confidence and Credibility}
+Short blurb here about the two metrics. Details in appendix
+
+\subsection{Deep Weighted Averaging Classifiers}
+Traditional softmax-based deep classifiers produce output probabilitys on classes by the following:
+\begin{equation}
+  P(y = k | x) = \frac{\exp([h]_k)}{\sum_{i=1}^j([h]_i)}
+\end{equation}
+where $h = W f(x) + b$. Here we make explicit the separation between the feature extractor portion of the deep model, $f(x)$, which yields a low-dimensional representation of the input and the softmax layer.
+
+In contrast, DWAC models may retain the same feature extractor $f(x)$, however replace the affine transformation and softmax with the following:
+\begin{equation} \label{dwac:probs}
+  P(y = k | x) = \frac{\sum_{(x_t, y_t) \in \mc{T}} \I(y_t = k) w(f(x_t), f(x))}{\sum_{(x_t, y_t) \in \mc{T}} w(f(x_t), f(x))}
+\end{equation}
+where $w(a, a')$ is a function of similarity between the embeddings $a$ and $a'$. In \citet{card.2019} and for the rest of this work, we will define $w$ to be the gaussian kernel with standard deviation $\sigma = \frac{1}{2}$:
+\begin{equation}
+  w(a, a') = \exp(- \| a - a' \|_2^2)
+\end{equation}
+
+Because comparing each example against the entire training set isn't tractable during training, DWAC leans on using the following approximation, replacing the training set with all other
+examples in the same minibatch, $\mc{B}$:
+\begin{equation} \label{dwac:approx}
+  P(y = k | x) \approx \widehat{P}(y = k | x) = \frac{\sum_{(x_b, y_b) \in \mc{B}, x_b \neq x} \I(y_b = k) w(f(x_b), f(x))}{\sum_{(x_b, y_b) \in \mc{B}, x_b \neq x} w(f(x_b), f(x))}
+\end{equation}
+
+\section{Prototyped Deep Weighted Averaging Classifiers}
+When using ProtoDWAC, we replace the weighted sum against the training set with a set of prototypes, $\mc{P}$, which are each associated with a given label. In practice, we associate a
+constant number of prototypes with each output class. Our model now assigns probabilities according to the following:
+\begin{equation} \label{proto:probs}
+  P(y = k | x) = \frac{\sum_{(z_p, y_p) \in \mc{P}} \I(y_p = k) w(z_p, f(x))}{\sum_{(z_p, y_p) \in \mc{P}} w(z_p, f(x))}
+\end{equation}
+Each prototype embeddding, $z_p$, lives in the embedding space of the feature extractor and are learned alongside the parameters of the model.
+
+\subsection{Training and Time Complexity}
+In ProtoDWAC, we do not need to make the training time approximations as in equation~\ref{dwac:approx} becuase the set of prototypes is vastly smaller than the training set. Additionally, ProtoDWAC avoids issues posed to the DWAC model with regards to class imbalences in the training set as in addition
+
+At test time, predicting on a single instance takes $\mc{O}(|\mc{T}|z)$ where $z$ is the dimensions of the hidden representation. In contrast softmax models and ProtoDWAC (for a constant number of prototypes per class) take $\mc{O}(zk)$ where $k$ is the number of output classes. Using prototypes allows us to remove the linear scaling factor with respect to the size of the training set: the primary bottleneck of the DWAC model.
+
+\subsection{Measures of Nonconformity}
+As noted in \cite{card.2019}, DWAC models have a natural measure of nonconformity that's different than the traditional inverse probability transformation in equation.~\ref{inv.prob}. Although less \textit{exact} than the inverse probability, the inverse of the numerator from equation~\ref{dwac:probs} also grows inversely to the probability. Additionally, using the inverse numerator as a measure of non-conformity also has an intuitive interpretation as it correlates with the summed embedded distances from all instances of the same class in the training set. For ProtoDWAC, we also experiment with using the analog of this as a measure of nonconformity: the inverse of equation~\ref{proto:probs}.
+
+
+
+\section{Experiments}
+\subsection{Standard Experiments on IMDB and StackOverflow}
+\begin{itemize}
+  \item number of output classes
+  \item Introduce the feature extractor model \citet{mullenbach.2018}
+  \item Softmax Baseline, DWAC, ProtoDWAC (with variable number of prototypes/class)
+\end{itemize}
+
+\section{Results}
+\subsection{Accuracy and Calibration}
+\subsection{Confidence and Credibility}
+\subsection{Interpretability and Visualizations (Seeding Prototypes Here?)}
+\subsection{Out-of-domain data experiments and label ablations}
+
+\section{Related Work}
+
+\section{Conclusion}
+
+\newpage
+\section{Acknowledgements}
+Thank Noah, TAs, and class for discussions
+
+\bibliographystyle{plainnat}
+\bibliography{refs}\label{lastpage}
+
+\newpage
+\appendix
+\section{Background}
 \subsection{Conformal Methods}
 \textit{Conformal Methods} refer to a broad range of methods that can be applied to any existing classification or regression system to provide theoretical guarantees on error rates. For our purposes we offer a condensed description of conformal methods that is tailored to our sepecific setting of probablistic models for classification.\footnote{For a more general overview, see \citet{card.2019}, (KAKA), (KAKA), or (KAKA).} Conformal methods methods rely on a scalar metric of \textit{nonconformity}, $\eta$, that can be computed on our trained model, $\mc{M}$, for each test instance, $x$, and output class, $k$, pair, i.e.
 \begin{equation}
@@ -91,71 +164,5 @@ The authors of \citet{saunders.1999} proposed two metrics for evalutaing classif
 
 In settings where predicting a set of labels doesn't make sense, using conformal methods can allow us to yield a single label as well as an associated confidence and credibility score for the prediction.
 
-\subsection{Deep Weighted Averaging Classifiers}
-Traditional softmax-based deep classifiers produce output probabilitys on classes by the following:
-\begin{equation}
-  P(y = k | x) = \frac{\exp([h]_k)}{\sum_{i=1}^j([h]_i)}
-\end{equation}
-where $h = W f(x) + b$. Here we make explicit the separation between the feature extractor portion of the deep model, $f(x)$, which yields a low-dimensional representation of the input and the softmax layer.
-
-In contrast, DWAC models may retain the same feature extractor $f(x)$, however replace the affine transformation and softmax with the following:
-\begin{equation} \label{dwac:probs}
-  P(y = k | x) = \frac{\sum_{(x_t, y_t) \in \mc{T}} \I(y_t = k) w(f(x_t), f(x))}{\sum_{(x_t, y_t) \in \mc{T}} w(f(x_t), f(x))}
-\end{equation}
-where $w(a, a')$ is a function of similarity between the embeddings $a$ and $a'$. In \citet{card.2019} and for the rest of this work, we will define $w$ to be the gaussian kernel with standard deviation $\sigma = \frac{1}{2}$:
-\begin{equation}
-  w(a, a') = \exp(- \| a - a' \|_2^2)
-\end{equation}
-
-Because comparing each example against the entire training set isn't tractable during training, DWAC leans on using the following approximation, replacing the training set with all other
-examples in the same minibatch, $\mc{B}$:
-\begin{equation} \label{dwac:approx}
-  P(y = k | x) \approx \widehat{P}(y = k | x) = \frac{\sum_{(x_b, y_b) \in \mc{B}, x_b \neq x} \I(y_b = k) w(f(x_b), f(x))}{\sum_{(x_b, y_b) \in \mc{B}, x_b \neq x} w(f(x_b), f(x))}
-\end{equation}
-
-\section{Prototyped Deep Weighted Averaging Classifiers}
-When using ProtoDWAC, we replace the weighted sum against the training set with a set of prototypes, $\mc{P}$, which are each associated with a given label. In practice, we associate a
-constant number of prototypes with each output class. Our model now assigns probabilities according to the following:
-\begin{equation} \label{proto:probs}
-  P(y = k | x) = \frac{\sum_{(x_p, y_p) \in \mc{P}} \I(y_p = k) w(f(x_p), f(x))}{\sum_{(x_p, y_p) \in \mc{P}} w(f(x_p), f(x))}
-\end{equation}
-
-\subsection{Training and Time Complexity}
-In ProtoDWAC, we do not need to make the training time approximations as in equation~\ref{dwac:approx} becuase the set of prototypes is vastly smaller than the training set. Additionally, ProtoDWAC avoids issues posed to the DWAC model with regards to class imbalences in the training set as in addition
-
-At test time, predicting on a single instance takes $\mc{O}(|\mc{T}|z)$ where $z$ is the dimensions of the hidden representation. In contrast softmax models and ProtoDWAC (for a constant number of prototypes per class) take $\mc{O}(zk)$ where $k$ is the number of output classes. Using prototypes allows us to remove the linear scaling factor with respect to the size of the training set: the primary bottleneck of the DWAC model.
-
-\subsection{Measures of Nonconformity}
-As noted in \cite{card.2019}, DWAC models have a natural measure of nonconformity that's different than the traditional inverse probability transformation in equation.~\ref{inv.prob}. Although less \textit{exact} than the inverse probability, the inverse of the numerator from equation~\ref{dwac:probs} also grows inversely to the probability. Additionally, using the inverse numerator as a measure of non-conformity also has an intuitive interpretation as it correlates with the summed embedded distances from all instances of the same class in the training set. For ProtoDWAC, we also experiment with using the analog of this as a measure of nonconformity: the inverse of equation~\ref{proto:probs}.
-
-
-
-\section{Experiments}
-\subsection{Standard Experiments on IMDB and StackOverflow}
-\begin{itemize}
-  \item number of output classes
-  \item Introduce the feature extractor model \citet{mullenbach.2018}
-  \item Softmax Baseline, DWAC, ProtoDWAC (with variable number of prototypes/class)
-\end{itemize}
-
-\subsection{Out-of-domain data experiments and label ablations}
-\begin{itemize}
-  \item Experiment with ablating multiple labels at once from StackOverflow data
-  \item Experiment with OOD data detection on IMDB. Data taken from ???
-\end{itemize}
-
-\section{Results}
-\subsection{Accuracy and Calibration}
-\subsection{Confidence and Credibility}
-\subsection{Interpretability and Visualizations}
-\subsection{Out-of-domain data experiments and label ablations}
-
-\section{Related Work}
-
-\section{Conclusion}
-
-\newpage
-\bibliographystyle{plainnat}
-\bibliography{refs}\label{lastpage}
 
 \end{document}
